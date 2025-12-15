@@ -1,0 +1,90 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Column Finder{% endblock %}
+
+{% block base_styles %}
+.hero { display: grid; gap: 12px; }
+.hero-title { font-size: 2rem; font-weight: 700; color: #ffffff; }
+.hero-subtitle { color: #ffffff; font-size: 1rem; max-width: 680px; }
+.search-grid { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; margin-top: 12px; align-items: center; }
+.input { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.35); background: #0b1220; color: #ffffff; }
+.input:focus { outline: 1px solid #38bdf8; }
+.tip { color: #ffffff; font-size: 0.9rem; }
+.card-title { color: #ffffff !important; }
+.card-subtitle { color: #ffffff !important; }
+.stats-block, .stats-block * { color: #ffffff !important; }
+.bar-track { height: 10px; background: rgba(56,189,248,0.15); border-radius: 8px; overflow: hidden; }
+.bar-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #4f46e5); }
+{% endblock %}
+
+{% block content %}
+<div class="card hero p-4">
+    <div class="hero-title">Column Finder</div>
+    <div class="hero-subtitle">
+        Search proteins by name, gene, or organism and get suggested chromatography columns.
+    </div>
+    {% if protein_count is not none %}
+    <div class="hero-subtitle" style="color: #ffffff; font-weight: 700;">
+        {{ protein_count }} proteins in the database.
+    </div>
+    {% elif error_message %}
+    <div class="hero-subtitle" style="color: #fca5a5;">
+        {{ error_message }}
+    </div>
+    {% endif %}
+    <form method="get" action="{{ url_for('results') }}" class="search-grid">
+        <input id="search-input" class="input" type="text" name="search" placeholder="e.g. EGFR, insulin, kinase" />
+        <button class="btn btn-primary" type="submit">Search</button>
+        <button class="btn btn-outline-light" type="button" id="example-btn">Example</button>
+    </form>
+    <div class="tip">Results appear on the Proteins page.</div>
+</div>
+
+{% block scripts %}
+<script>
+(function() {
+    const exampleBtn = document.getElementById('example-btn');
+    const input = document.getElementById('search-input');
+    if (exampleBtn && input) {
+        exampleBtn.addEventListener('click', () => {
+            fetch('{{ url_for("api_example") }}')
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.search) {
+                        input.value = data.search;
+                    }
+                })
+                .catch(() => {});
+        });
+    }
+})();
+</script>
+{% endblock %}
+
+<div class="card p-4 stats-block">
+    <div class="card-title">Stats overview</div>
+    <div class="card-subtitle">Distribution of pI and molecular weight</div>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-top:12px;">
+        <div class="box">
+            <div class="card-subtitle">pI buckets</div>
+            <div class="tip">Count of proteins per range</div>
+            <div style="margin-top:8px;">&lt; 6: <strong>{{ pi_buckets.lt6 }}</strong></div>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ pi_total and (pi_buckets.lt6 / pi_total * 100) or 0 }}%;"></div></div>
+            <div>6–8: <strong>{{ pi_buckets.btw6_8 }}</strong></div>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ pi_total and (pi_buckets.btw6_8 / pi_total * 100) or 0 }}%;"></div></div>
+            <div>&gt; 8: <strong>{{ pi_buckets.gt8 }}</strong></div>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ pi_total and (pi_buckets.gt8 / pi_total * 100) or 0 }}%;"></div></div>
+        </div>
+        <div class="box">
+            <div class="card-subtitle">MW buckets (kDa)</div>
+            <div class="tip">Count of proteins per range</div>
+            <div style="margin-top:8px;">&lt; 50: <strong>{{ mw_buckets.lt50 }}</strong></div>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ mw_total and (mw_buckets.lt50 / mw_total * 100) or 0 }}%;"></div></div>
+            <div>50–100: <strong>{{ mw_buckets.btw50_100 }}</strong></div>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ mw_total and (mw_buckets.btw50_100 / mw_total * 100) or 0 }}%;"></div></div>
+            <div>&gt; 100: <strong>{{ mw_buckets.gt100 }}</strong></div>
+            <div class="bar-track"><div class="bar-fill" style="width: {{ mw_total and (mw_buckets.gt100 / mw_total * 100) or 0 }}%;"></div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

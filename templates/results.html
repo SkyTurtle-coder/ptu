@@ -1,0 +1,270 @@
+﻿{% extends "base.html" %}
+
+{% block title %}Search Results{% endblock %}
+
+{% block base_styles %}
+.hero { display: grid; gap: 8px; margin-bottom: 8px; }
+.hero-title { font-size: 1.4rem; font-weight: 700; color: #ffffff; }
+.hero-subtitle { color: #ffffff; font-size: 0.95rem; }
+.search-grid { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 6px; }
+.input { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(148,163,184,0.35); background: #0b1220; color: #ffffff; }
+.input:focus { outline: 1px solid #38bdf8; }
+.btn { padding: 12px 16px; border-radius: 12px; }
+.status-bar { display: flex; align-items: center; gap: 12px; font-size: 0.9rem; color: #e2e8f0; margin: 10px 0 8px; }
+.table-card { margin-top: 10px; overflow: hidden; }
+table { width: 100%; border-collapse: collapse; }
+.table-card th, .table-card td { padding: 10px 12px; border-bottom: 1px solid rgba(148,163,184,0.2); text-align: left; font-size: 0.9rem; color: #ffffff; }
+.table-card th { color: #e2e8f0; font-weight: 600; background: rgba(125,211,252,0.08); }
+.badge-soft { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; background: rgba(56,189,248,0.12); color: #e5e7eb; font-size: 0.8rem; }
+.empty { padding: 18px; text-align: center; color: #94a3b8; }
+.error { padding: 12px 14px; border-radius: 12px; background: rgba(249, 115, 115, 0.12); border: 1px solid rgba(249, 115, 115, 0.4); color: #fecaca; margin-top: 12px; }
+.link { color: #7dd3fc; font-weight: 600; }
+.link:hover { text-decoration: underline; color: #bae6fd; }
+.stats-block, .stats-block * { color: #ffffff !important; }
+small { color: #ffffff; }
+{% endblock %}
+
+{% block content %}
+    <div class="card hero p-3">
+        <div class="hero-title">Search results</div>
+        <div class="hero-subtitle">Adjust your search or return to the landing page.</div>
+        <form method="get" action="{{ url_for('results') }}" class="search-grid">
+            <input class="input" type="text" name="search" placeholder="e.g. EGFR, insulin, kinase" value="{{ search_query }}" />
+            <button class="btn btn-primary" type="submit">Search</button>
+        </form>
+        <div class="hero-subtitle"><a class="link" href="{{ url_for('index') }}">Back to landing page</a></div>
+        {% if error_message %}
+            <div class="error">{{ error_message }}</div>
+        {% endif %}
+    </div>
+
+<div class="card table-card p-3 stats-block">
+    <div class="status-bar">
+        <div class="badge-soft">
+            <span class="badge-dot"></span>
+            {{ results|length }} hits
+        </div>
+        <div>{% if search_query %}Filter: "{{ search_query }}"{% else %}Showing sample records{% endif %}</div>
+    </div>
+
+    <div class="card" style="margin-bottom: 12px;">
+        <div class="card-title">Stats (visible rows)</div>
+        <div class="subtitle">Position of visible rows relative to the full database range.</div>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px; margin-top:10px;">
+            <div class="box">
+                <div class="card-subtitle">pI (visible range)</div>
+                <div style="font-size:1.1rem; margin:6px 0;">
+                    <span id="pi-min">-</span> – <span id="pi-max">-</span>
+                    <br><small>DB range: {% if pi_global_min is not none %}{{ '%.2f'|format(pi_global_min) }}{% else %}-{% endif %} – {% if pi_global_max is not none %}{{ '%.2f'|format(pi_global_max) }}{% else %}-{% endif %}</small>
+                </div>
+                <div style="height:10px; background:rgba(56,189,248,0.15); border-radius:8px; overflow:hidden;">
+                    <div id="pi-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #38bdf8, #4f46e5);"></div>
+                </div>
+            </div>
+            <div class="box">
+                <div class="card-subtitle">MW kDa (visible range)</div>
+                <div style="font-size:1.1rem; margin:6px 0;">
+                    <span id="mw-min">-</span> – <span id="mw-max">-</span>
+                    <br><small>DB range: {% if mw_global_min is not none %}{{ '%.2f'|format(mw_global_min) }}{% else %}-{% endif %} – {% if mw_global_max is not none %}{{ '%.2f'|format(mw_global_max) }}{% else %}-{% endif %}</small>
+                </div>
+                <div style="height:10px; background:rgba(56,189,248,0.15); border-radius:8px; overflow:hidden;">
+                    <div id="mw-bar" style="height:100%; width:0%; background:linear-gradient(90deg, #22d3ee, #0ea5e9);"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if results %}
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>UniProt</th>
+                    <th>Name</th>
+                    <th>Gene</th>
+                    <th>Organism</th>
+                    <th>Tag</th>
+                    <th>pI</th>
+                    <th>MW (kDa)</th>
+                    <th>Recommendation</th>
+                    <th>Polishing</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in results %}
+                <tr data-pi="{{ row.pI if row.pI is not none else '' }}" data-mw="{{ row.mw_kda if row.mw_kda is not none else '' }}">
+                    <td>{{ row.uniprot_id or "-" }}</td>
+                    <td>
+                        {% if row.uniprot_id %}
+                            <a class="link" href="https://www.uniprot.org/uniprotkb/{{ row.uniprot_id }}" target="_blank" rel="noopener">
+                                {{ row.name or "-" }}
+                            </a>
+                        {% else %}
+                            {{ row.name or "-" }}
+                        {% endif %}
+                    </td>
+                    <td>{{ row.gene_name or "-" }}</td>
+                    <td>{{ row.organism or "-" }}</td>
+                    <td>
+                        <select class="input tag-select" style="padding:6px 8px;">
+                            <option value="">-- Select tag --</option>
+                            <option value="His">His</option>
+                            <option value="GST">GST</option>
+                            <option value="Strep">Strep</option>
+                        </select>
+                    </td>
+                    <td>
+                        {% if row.pI is not none %}
+                            {{ '%.2f' | format(row.pI) }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.mw_kda is not none %}
+                            {{ '%.1f' | format(row.mw_kda) }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a class="link rec-link" href="{{ row.recommended_column and cytiva_url(row.recommended_column) or '#' }}" target="_blank">
+                            {{ row.recommended_column or "-" }}
+                        </a>
+                    </td>
+                    <td>
+                        <a class="link pol-link" href="{{ row.polishing_column and cytiva_url(row.polishing_column) or '#' }}" target="_blank">
+                            {{ row.polishing_column or "-" }}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        {% if not error_message %}
+            <div class="empty">No hits found. Try another search.</div>
+        {% endif %}
+    {% endif %}
+</div>
+
+{% block scripts %}
+<script>
+(function() {
+    const mapping = {
+        "His": {
+            rec: "HisTrap FF (IMAC, Ni-NTA)",
+            pol: null,
+            urlRec: "{{ cytiva_url('HisTrap FF (IMAC, Ni-NTA)') }}"
+        },
+        "GST": {
+            rec: "GSTrap 4B (Affinity)",
+            pol: null,
+            urlRec: "{{ cytiva_url('GSTrap 4B (Affinity)') }}"
+        },
+        "Strep": {
+            rec: "Strep-Tactin Sepharose (Affinity)",
+            pol: null,
+            urlRec: "{{ cytiva_url('Strep-Tactin Sepharose (Affinity)') }}"
+        }
+    };
+
+    const recUrl = {
+        "HisTrap FF (IMAC, Ni-NTA)": "{{ cytiva_url('HisTrap FF (IMAC, Ni-NTA)') }}",
+        "GSTrap 4B (Affinity)": "{{ cytiva_url('GSTrap 4B (Affinity)') }}",
+        "Strep-Tactin Sepharose (Affinity)": "{{ cytiva_url('Strep-Tactin Sepharose (Affinity)') }}",
+        "HiTrap Q HP (Anion exchange)": "{{ cytiva_url('HiTrap Q HP (Anion exchange)') }}",
+        "HiTrap SP HP (Cation exchange)": "{{ cytiva_url('HiTrap SP HP (Cation exchange)') }}",
+        "Superdex 200 Increase (SEC)": "{{ cytiva_url('Superdex 200 Increase (SEC)') }}",
+        "Superdex 75 Increase (SEC)": "{{ cytiva_url('Superdex 75 Increase (SEC)') }}"
+    };
+
+    const polUrl = {
+        "Superdex 200 Increase (SEC polishing)": "{{ cytiva_url('Superdex 200 Increase (SEC polishing)') }}",
+        "Superdex 75 Increase (SEC polishing)": "{{ cytiva_url('Superdex 75 Increase (SEC polishing)') }}"
+    };
+
+    function recompute(row, tagChoice) {
+        const pi = parseFloat(row.dataset.pi);
+        const mw = parseFloat(row.dataset.mw);
+        let rec = row.querySelector('.rec-link');
+        let pol = row.querySelector('.pol-link');
+
+        let recText = rec.textContent.trim();
+        let polText = pol.textContent.trim();
+
+        if (tagChoice && mapping[tagChoice]) {
+            recText = mapping[tagChoice].rec;
+            rec.href = mapping[tagChoice].urlRec;
+        } else {
+            // fallback auf pI-Heuristik
+            if (!isNaN(pi)) {
+                if (pi < 7) {
+                    recText = "HiTrap Q HP (Anion exchange)";
+                } else if (pi > 7) {
+                    recText = "HiTrap SP HP (Cation exchange)";
+                } else {
+                    recText = "Superdex 200 Increase (SEC)";
+                }
+                rec.href = recUrl[recText] || "#";
+            }
+        }
+
+        // polishing bleibt wie bisher: MW Heuristik
+        if (!isNaN(mw)) {
+            if (mw <= 70) {
+                polText = "Superdex 75 Increase (SEC polishing)";
+                pol.href = polUrl[polText] || "#";
+            } else {
+                polText = "Superdex 200 Increase (SEC polishing)";
+                pol.href = polUrl[polText] || "#";
+            }
+        }
+
+        rec.textContent = recText || "-";
+        pol.textContent = polText || "-";
+    }
+
+    document.querySelectorAll('.tag-select').forEach(sel => {
+        sel.addEventListener('change', (e) => {
+            const row = e.target.closest('tr');
+            recompute(row, e.target.value);
+        });
+    });
+
+    // Stats pI / MW
+    const rows = Array.from(document.querySelectorAll('tbody tr'));
+    const pis = rows.map(r => parseFloat(r.dataset.pi)).filter(v => !isNaN(v));
+    const mws = rows.map(r => parseFloat(r.dataset.mw)).filter(v => !isNaN(v));
+
+    const piGlobalMin = {{ pi_global_min|tojson }};
+    const piGlobalMax = {{ pi_global_max|tojson }};
+    const mwGlobalMin = {{ mw_global_min|tojson }};
+    const mwGlobalMax = {{ mw_global_max|tojson }};
+
+    function setStats(values, minId, maxId, barId, gMin, gMax) {
+        const minEl = document.getElementById(minId);
+        const maxEl = document.getElementById(maxId);
+        const barEl = document.getElementById(barId);
+        if (!values.length || gMin === null || gMax === null || isNaN(gMin) || isNaN(gMax) || gMax === gMin) {
+            minEl.textContent = maxEl.textContent = "-";
+            barEl.style.width = "0%";
+            return;
+        }
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        minEl.textContent = min.toFixed(2);
+        maxEl.textContent = max.toFixed(2);
+        // position bar at midpoint of visible range
+        const mid = (min + max) / 2;
+        const width = Math.min(100, Math.max(5, ((mid - gMin) / (gMax - gMin)) * 100));
+        barEl.style.width = width + "%";
+    }
+
+    setStats(pis, "pi-min", "pi-max", "pi-bar", piGlobalMin, piGlobalMax);
+    setStats(mws, "mw-min", "mw-max", "mw-bar", mwGlobalMin, mwGlobalMax);
+})();
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Protein Detail{% endblock %}
+
+{% block base_styles %}
+.hero { display: grid; gap: 8px; margin-bottom: 12px; }
+.hero-title { font-size: 1.6rem; font-weight: 700; }
+.hero-subtitle { color: #ffffff; font-size: 0.95rem; }
+.section { margin-top: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.card-visual { position: relative; overflow: hidden; }
+.struct-visual {
+    height: 220px;
+    border-radius: 14px;
+    background: radial-gradient(circle at 30% 30%, rgba(56,189,248,0.3), rgba(79,70,229,0.2), rgba(15,23,42,0.9));
+    border: 1px solid rgba(148,163,184,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: 10px 12px; border-bottom: 1px solid rgba(148,163,184,0.2); text-align: left; font-size: 0.9rem; color: #ffffff; }
+.table th { color: #ffffff; font-weight: 600; background: rgba(125,211,252,0.08); }
+.badge-soft { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; background: rgba(56,189,248,0.12); color: #e5e7eb; font-size: 0.8rem; }
+.error { padding: 12px 14px; border-radius: 12px; background: rgba(249, 115, 115, 0.12); border: 1px solid rgba(249, 115, 115, 0.4); color: #fecaca; margin-top: 12px; }
+.subtitle { color: #ffffff; font-size: 0.9rem; }
+.box { border: 1px solid rgba(148,163,184,0.2); border-radius: 12px; padding: 12px; background: rgba(56,189,248,0.05); color: #ffffff; }
+{% endblock %}
+
+{% block content %}
+<div class="card hero p-3">
+    <div class="hero-title">{{ protein.name or "Protein" }}</div>
+    <div class="hero-subtitle">{{ protein.gene_name or "" }} {% if protein.organism %}· {{ protein.organism }}{% endif %}</div>
+    <div class="hero-subtitle">UniProt: {{ protein.uniprot_id or "-" }}</div>
+    <div class="hero-subtitle"><a class="link" href="{{ url_for('results', search=protein.gene_name or protein.uniprot_id) }}">Back to results</a></div>
+    {% if error_message %}
+        <div class="error">{{ error_message }}</div>
+    {% endif %}
+</div>
+
+<div class="grid">
+    <div class="card card-visual p-3">
+        <div class="card-title">Structure preview</div>
+        {% if protein.image_url %}
+            <div class="struct-visual" style="padding:0;">
+                <img src="{{ protein.image_url }}" alt="Structure {{ protein.pdb_id or '' }}" style="width:100%; height:220px; object-fit: cover; border-radius: 12px;">
+            </div>
+            <div class="subtitle">
+                {% if protein.pdb_id %}PDB: {{ protein.pdb_id }}{% endif %}
+                {% if protein.struct_title %}<br>{{ protein.struct_title }}{% endif %}
+                {% if protein.method %}<br>Method: {{ protein.method }}{% endif %}
+                {% if protein.resolution_angstrom %}<br>Resolution: {{ protein.resolution_angstrom }} Å{% endif %}
+            </div>
+        {% else %}
+            <div class="struct-visual">3D structure placeholder</div>
+            <div class="subtitle">No structure available.</div>
+        {% endif %}
+    </div>
+    <div class="card p-3">
+        <div class="card-title">Properties</div>
+        <table class="table">
+            <tbody>
+                <tr><th>UniProt</th><td>{{ protein.uniprot_id or "-" }}</td></tr>
+                <tr><th>Name</th><td>{{ protein.name or "-" }}</td></tr>
+                <tr><th>Gene</th><td>{{ protein.gene_name or "-" }}</td></tr>
+                <tr><th>Organism</th><td>{{ protein.organism or "-" }}</td></tr>
+                <tr><th>Length</th><td>{{ protein.length or "-" }}</td></tr>
+                <tr><th>Molecular weight (kDa)</th><td>{% if protein.mw_kda is not none %}{{ '%.1f'|format(protein.mw_kda) }}{% else %}-{% endif %}</td></tr>
+                <tr><th>pI</th><td>{% if protein.pI is not none %}{{ '%.2f'|format(protein.pI) }}{% else %}-{% endif %}</td></tr>
+                <tr><th>Tag</th><td>{{ protein.tag or '-' }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="section card p-3">
+    <div class="card-title">Recommended column</div>
+    <div class="subtitle">Based on tag, pI and MW.</div>
+    <div style="margin:8px 0;">
+        <form method="get" action="{{ url_for('protein_detail', protein_id=protein.id) }}" style="display:flex; gap:8px; align-items:center;">
+            <label for="tag" class="subtitle">Set tag:</label>
+            <select id="tag" name="tag" class="input" style="width: 200px; padding:6px 8px;">
+                <option value="" {% if not tag_choice %}selected{% endif %}>No tag</option>
+                <option value="His" {% if tag_choice=='His' %}selected{% endif %}>His</option>
+                <option value="GST" {% if tag_choice=='GST' %}selected{% endif %}>GST</option>
+                <option value="Strep" {% if tag_choice=='Strep' %}selected{% endif %}>Strep</option>
+            </select>
+            <button class="btn btn-primary" type="submit">Apply</button>
+        </form>
+    </div>
+    <div class="box" style="margin-top: 10px;">
+        <div>
+            <strong>Primary:</strong>
+            {% if rec_data.recommended_column %}
+                <a class="link" href="{{ rec_data.recommended_url }}" target="_blank">
+                    {{ rec_data.recommended_column }}
+                </a>
+            {% else %}-{% endif %}
+        </div>
+        <div>
+            <strong>Polishing:</strong>
+            {% if rec_data.polishing_column %}
+                <a class="link" href="{{ rec_data.polishing_url }}" target="_blank">
+                    {{ rec_data.polishing_column }}
+                </a>
+            {% else %}-{% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
