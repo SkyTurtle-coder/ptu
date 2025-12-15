@@ -1,16 +1,17 @@
+import os
 import mysql.connector
 from mysql.connector import errorcode
 import requests
 from Bio.SeqUtils.ProtParam import ProteinAnalysis
 
 # ============================================
-# MySQL-Konfiguration
+# MySQL-Konfiguration (aus Umgebungsvariablen, falls gesetzt)
 # ============================================
 
-MYSQL_HOST = "localhost"
-MYSQL_USER = "root"
-MYSQL_PASSWORD = "VaPh_Schatz_2301"
-MYSQL_DB_NAME = "column_finder"
+MYSQL_HOST = os.environ.get("DB_HOST", "localhost")
+MYSQL_USER = os.environ.get("DB_USER", "root")
+MYSQL_PASSWORD = os.environ.get("DB_PASSWORD", "")
+MYSQL_DB_NAME = os.environ.get("DB_NAME", "column_finder")
 
 
 # ============================================
