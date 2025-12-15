@@ -8,7 +8,7 @@ app = Flask(__name__)
 # DB-Konfiguration (Env-Variablen erlauben Overrides)
 DB_HOST = os.environ.get("DB_HOST", "127.0.0.1")
 DB_USER = os.environ.get("DB_USER", "root")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "VaPh_Schatz_2301")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "password")
 DB_NAME = os.environ.get("DB_NAME", "column_finder")
 
 
